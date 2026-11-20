@@ -41,23 +41,70 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/title" />
 
-        <com.google.android.material.textfield.TextInputLayout
-            android:id="@+id/cityLayout"
+        <TextView
+            android:id="@+id/cityLabel"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginTop="28dp"
-            android:hint="Город"
+            android:text="@string/city_hint"
+            android:textColor="#344563"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/subtitle">
+            app:layout_constraintTop_toBottomOf="@id/subtitle" />
 
-            <com.google.android.material.textfield.MaterialAutoCompleteTextView
-                android:id="@+id/cityInput"
-                android:layout_width="match_parent"
+        <Spinner
+            android:id="@+id/citySpinner"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:entries="@array/cities"
+            android:paddingVertical="10dp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/cityLabel" />
+
+        <TextView
+            android:id="@+id/unitsLabel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="@string/temperature_units_label"
+            android:textColor="#344563"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/citySpinner" />
+
+        <RadioGroup
+            android:id="@+id/unitsRadioGroup"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            app:layout_constraintBottom_toBottomOf="@id/unitsLabel"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="@id/unitsLabel">
+
+            <RadioButton
+                android:id="@+id/celsiusRadio"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:inputType="none"
-                android:text="@={weather.city}" />
-        </com.google.android.material.textfield.TextInputLayout>
+                android:checked="true"
+                android:text="°C" />
+
+            <RadioButton
+                android:id="@+id/fahrenheitRadio"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="°F" />
+        </RadioGroup>
+
+        <CheckBox
+            android:id="@+id/windDirectionCheckBox"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:checked="false"
+            android:text="@string/wind_direction_toggle"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/unitsLabel" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/refreshButton"
@@ -65,11 +112,11 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
             android:onClick="@{() -> weather.refresh()}"
-            android:text="Обновить погоду"
+            android:text="@string/refresh_weather"
             app:cornerRadius="14dp"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/cityLayout" />
+            app:layout_constraintTop_toBottomOf="@id/windDirectionCheckBox" />
 
         <ProgressBar
             android:id="@+id/progress"
@@ -83,18 +130,30 @@
             app:layout_constraintTop_toBottomOf="@id/refreshButton"
             tools:visibility="gone" />
 
+        <TextView
+            android:id="@+id/loadError"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:text="@{weather.status}"
+            android:textColor="#B54708"
+            android:visibility="@{weather.status.isEmpty() ? View.GONE : View.VISIBLE}"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/progress" />
+
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/weatherCard"
             android:layout_width="0dp"
             android:layout_height="0dp"
-            android:layout_marginTop="24dp"
+            android:layout_marginTop="12dp"
             app:cardBackgroundColor="@android:color/white"
             app:cardCornerRadius="28dp"
             app:cardElevation="2dp"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/progress">
+            app:layout_constraintTop_toBottomOf="@id/loadError">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -145,16 +204,6 @@
                     android:textSize="16sp"
                     tools:text="Ощущается как −12°\nВлажность 72% • Ветер 3 м/с" />
 
-                <TextView
-                    android:id="@+id/status"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="24dp"
-                    android:gravity="center"
-                    android:text="@{weather.status}"
-                    android:textColor="#B54708"
-                    android:textSize="14sp"
-                    tools:text="Не удалось загрузить погоду" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
     </androidx.constraintlayout.widget.ConstraintLayout>

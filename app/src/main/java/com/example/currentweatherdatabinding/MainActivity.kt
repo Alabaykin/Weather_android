@@ -1,7 +1,8 @@
 package com.example.currentweatherdatabinding
 
 import android.os.Bundle
-import android.widget.ArrayAdapter
+import android.view.View
+import android.widget.AdapterView
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
@@ -24,11 +25,15 @@ import kotlin.math.roundToInt
 
 /** Observable state used by the XML data-binding expressions. */
 class WeatherViewModel {
-    val city = ObservableField("Иркутск")
     val cityName = ObservableField("Погода")
-    val temperature = ObservableField("—°")
-    val description = ObservableField("Выберите город")
+    val temperature = ObservableField("—°C")
+    val temperatureCelsius = ObservableField(0.0)
+    val feelsLikeCelsius = ObservableField(0.0)
     val details = ObservableField("")
+    val windDirection = ObservableField("")
+    val description = ObservableField("Выберите город")
+    val humidity = ObservableField(0)
+    val windSpeed = ObservableField(0.0)
     val status = ObservableField("")
     val loading = ObservableBoolean(false)
 
@@ -39,11 +44,18 @@ class WeatherViewModel {
 class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private val weather = WeatherViewModel()
-    private val cities = listOf(
-        "Иркутск", "Москва", "Санкт-Петербург", "Новосибирск",
-        "Казань", "Владивосток", "Екатеринбург", "Якутск"
-    )
     private var weatherRequest: Job? = null
+    private var selectedCity = "Иркутск"
+    private var useFahrenheit = false
+        set(value) {
+            field = value
+            renderWeather()
+        }
+    private var showWindDirection = false
+        set(value) {
+            field = value
+            renderWeather()
+        }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -52,6 +64,7 @@ class MainActivity : AppCompatActivity() {
         binding = DataBindingUtil.setContentView(this, R.layout.activity_main)
         binding.lifecycleOwner = this
         binding.weather = weather
+        binding.citySpinner.setSelection(0, false)
 
         ViewCompat.setOnApplyWindowInsetsListener(binding.main) { view, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
@@ -59,21 +72,30 @@ class MainActivity : AppCompatActivity() {
             insets
         }
 
-        binding.cityInput.setAdapter(
-            ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, cities)
-        )
-        binding.cityInput.setOnItemClickListener { _, _, _, _ -> loadWeather() }
+        binding.citySpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(
+                parent: AdapterView<*>?,
+                view: View?,
+                position: Int,
+                id: Long
+            ) {
+                selectedCity = resources.getStringArray(R.array.cities)[position]
+                loadWeather()
+            }
+
+            override fun onNothingSelected(parent: AdapterView<*>?) = Unit
+        }
+
+        binding.unitsRadioGroup.setOnCheckedChangeListener { _, checkedId ->
+            useFahrenheit = checkedId == R.id.fahrenheitRadio
+        }
+        binding.windDirectionCheckBox.setOnCheckedChangeListener { _, checked ->
+            showWindDirection = checked
+        }
         weather.onRefresh = { loadWeather() }
-        binding.cityInput.setText(weather.city.get(), false)
-        loadWeather()
     }
 
     private fun loadWeather() {
-        val selectedCity = weather.city.get()?.trim().orEmpty()
-        if (selectedCity.isBlank()) {
-            weather.status.set("Выберите город")
-            return
-        }
         weather.loading.set(true)
         weather.status.set("Загружаем погоду…")
         weatherRequest?.cancel()
@@ -81,19 +103,22 @@ class MainActivity : AppCompatActivity() {
             try {
                 val result = withContext(Dispatchers.IO) { fetchWeather(selectedCity) }
                 weather.cityName.set(result.name)
-                weather.temperature.set("${result.temperature.roundToInt()}°")
+                weather.temperatureCelsius.set(result.temperature)
+                weather.feelsLikeCelsius.set(result.feelsLike)
+                weather.humidity.set(result.humidity)
+                weather.windSpeed.set(result.wind)
+                weather.windDirection.set(directionLabel(result.windDirectionDegrees))
                 weather.description.set(
                     result.description.replaceFirstChar { it.titlecase(Locale.getDefault()) }
                 )
-                weather.details.set(
-                    "Ощущается как ${result.feelsLike.roundToInt()}°\n" +
-                        "Влажность ${result.humidity}%  •  Ветер ${String.format(Locale.getDefault(), "%.1f", result.wind)} м/с"
-                )
+                renderWeather()
                 weather.status.set("")
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
             } catch (_: Exception) {
                 weather.status.set("Не удалось загрузить погоду. Проверьте сеть и название города.")
             } finally {
-                weather.loading.set(false)
+                if (weatherRequest?.isActive != true) weather.loading.set(false)
             }
         }
     }
@@ -115,7 +140,7 @@ class MainActivity : AppCompatActivity() {
         val forecastUrl = URL(
             "https://api.open-meteo.com/v1/forecast" +
                 "?latitude=$latitude&longitude=$longitude" +
-                "&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m" +
+                "&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m,wind_direction_10m" +
                 "&wind_speed_unit=ms&timezone=auto"
         )
         val current = requestJson(forecastUrl).getJSONObject("current")
@@ -126,6 +151,7 @@ class MainActivity : AppCompatActivity() {
             feelsLike = current.getDouble("apparent_temperature"),
             humidity = current.getInt("relative_humidity_2m"),
             wind = current.getDouble("wind_speed_10m"),
+            windDirectionDegrees = current.getDouble("wind_direction_10m"),
             description = weatherDescription(code)
         )
     }
@@ -165,12 +191,39 @@ class MainActivity : AppCompatActivity() {
         else -> "Погодные данные получены"
     }
 
+    private fun renderWeather() {
+        val temperatureC = weather.temperatureCelsius.get() ?: 0.0
+        val feelsLikeC = weather.feelsLikeCelsius.get() ?: 0.0
+        val unit = if (useFahrenheit) "°F" else "°C"
+        val temperature = if (useFahrenheit) temperatureC * 9.0 / 5.0 + 32.0 else temperatureC
+        val feelsLike = if (useFahrenheit) feelsLikeC * 9.0 / 5.0 + 32.0 else feelsLikeC
+        val wind = weather.windSpeed.get() ?: 0.0
+        val windText = String.format(Locale.getDefault(), "%.1f", wind)
+        val windDirectionText = if (showWindDirection) {
+            "\nНаправление ветра ${weather.windDirection.get().orEmpty()}"
+        } else ""
+
+        // The screen is rendered through the same observable model used by data binding.
+        weather.temperature.set("${temperature.roundToInt()}$unit")
+        weather.details.set(
+            "Ощущается как ${feelsLike.roundToInt()}$unit\n" +
+                "Влажность ${weather.humidity.get()}%  •  Ветер $windText м/с" + windDirectionText
+        )
+    }
+
+    private fun directionLabel(degrees: Double): String {
+        val directions = listOf("С", "СВ", "В", "ЮВ", "Ю", "ЮЗ", "З", "СЗ")
+        val index = ((degrees + 22.5) / 45.0).toInt() % directions.size
+        return "${directions[index]} (${degrees.roundToInt()}°)"
+    }
+
     private data class WeatherResult(
         val name: String,
         val temperature: Double,
         val feelsLike: Double,
         val humidity: Int,
         val wind: Double,
+        val windDirectionDegrees: Double,
         val description: String
     )
 }

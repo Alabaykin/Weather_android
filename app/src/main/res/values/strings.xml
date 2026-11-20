@@ -1,3 +1,21 @@
 <resources>
     <string name="app_name">CurrentWeatherDataBinding</string>
+    <string name="city_hint">Город</string>
+    <string name="temperature_units_label">Температура</string>
+    <string name="wind_direction_toggle">Показывать направление ветра</string>
+    <string name="refresh_weather">Обновить погоду</string>
+    <string-array name="cities">
+        <item>Иркутск</item>
+        <item>Москва</item>
+        <item>Санкт-Петербург</item>
+        <item>Новосибирск</item>
+        <item>Казань</item>
+        <item>Владивосток</item>
+        <item>Екатеринбург</item>
+        <item>Якутск</item>
+    </string-array>
+    <string-array name="temperature_units">
+        <item>°C</item>
+        <item>°F</item>
+    </string-array>
 </resources>
